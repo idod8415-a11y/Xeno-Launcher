@@ -15,7 +15,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 
 private val XenoColors = darkColorScheme(
     primary = androidx.compose.ui.graphics.Color(0xFF7CFFB2),
@@ -49,17 +51,22 @@ fun XenoApp() {
         }
     ) { pad ->
         Box(Modifier.padding(pad).fillMaxSize()) {
-            if (tab == 0) PlayScreen(selected, nick, { selected = it })
+            if (tab == 0) PlayScreen(selected) { selected = it }
             else SettingsScreen(nick, { nick = it }, ramMb, { ramMb = it })
         }
     }
 }
 
 @Composable
-fun PlayScreen(selected: McVersion?, nick: String, onSelect: (McVersion) -> Unit) {
+fun PlayScreen(selected: McVersion?, onSelect: (McVersion) -> Unit) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
     var versions by remember { mutableStateOf<List<McVersion>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
     var snapshots by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
+    var status by remember { mutableStateOf("") }
+    var progress by remember { mutableFloatStateOf(0f) }
 
     LaunchedEffect(Unit) {
         try { versions = VersionRepo.load() } catch (e: Exception) { error = e.message }
@@ -93,14 +100,41 @@ fun PlayScreen(selected: McVersion?, nick: String, onSelect: (McVersion) -> Unit
                 }
             }
         }
+        if (status.isNotEmpty()) {
+            Spacer(Modifier.height(8.dp))
+            Text(status)
+            LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(8.dp))
+        }
         Button(
-            onClick = { /* этап 2-4: скачивание и запуск */ },
-            enabled = selected != null,
+            onClick = {
+                val v = selected
+                if (v != null && !busy) {
+                    busy = true
+                    progress = 0f
+                    status = "Начинаю…"
+                    scope.launch {
+                        try {
+                            Downloader.install(ctx, v) { s, p -> status = s; progress = p }
+                        } catch (e: Exception) {
+                            status = "Ошибка: ${e.message}"
+                        }
+                        busy = false
+                    }
+                }
+            },
+            enabled = selected != null && !busy,
             modifier = Modifier.fillMaxWidth()
         ) {
             Icon(Icons.Filled.PlayArrow, null)
             Spacer(Modifier.width(8.dp))
-            Text(if (selected == null) "Выберите версию" else "Играть ${selected.id} как $nick")
+            Text(
+                when {
+                    busy -> "Скачиваю…"
+                    selected == null -> "Выберите версию"
+                    else -> "Скачать ${selected.id}"
+                }
+            )
         }
     }
 }
