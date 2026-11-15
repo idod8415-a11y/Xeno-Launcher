@@ -1,13 +1,11 @@
 #include <jni.h>
 #include <dlfcn.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <android/log.h>
-
-#define TAG "Xeno"
 
 typedef int (*JLI_Launch_t)(int argc, char **argv,
                             int jargc, const char **jargv,
@@ -16,6 +14,18 @@ typedef int (*JLI_Launch_t)(int argc, char **argv,
                             const char *pname, const char *lname,
                             unsigned char javaargs, unsigned char cpwildcard,
                             unsigned char javaw, int ergo);
+
+static void logmsg(const char *m) { write(2, m, strlen(m)); }
+
+static void on_exit_cb(void) { logmsg("[xeno] exit() was called\n"); }
+
+static void on_signal(int sig) {
+    char buf[64];
+    int n = snprintf(buf, sizeof buf, "[xeno] CRASH signal %d\n", sig);
+    write(2, buf, n);
+    signal(sig, SIG_DFL);
+    raise(sig);
+}
 
 static char *dupstr(JNIEnv *env, jstring s) {
     const char *c = (*env)->GetStringUTFChars(env, s, NULL);
@@ -35,7 +45,6 @@ Java_com_xeno_launcher_Native_launch(JNIEnv *env, jclass cls,
     char *jliPath = dupstr(env, jJli);
     char *logPath = dupstr(env, jLog);
 
-    /* stdout и stderr уходят в лог-файл, его читает лаунчер */
     int fd = open(logPath, O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (fd >= 0) {
         dup2(fd, 1);
@@ -45,15 +54,20 @@ Java_com_xeno_launcher_Native_launch(JNIEnv *env, jclass cls,
     setvbuf(stdout, NULL, _IONBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
 
+    atexit(on_exit_cb);
+    signal(SIGSEGV, on_signal);
+    signal(SIGABRT, on_signal);
+    signal(SIGBUS, on_signal);
+    signal(SIGILL, on_signal);
+
     setenv("JAVA_HOME", home, 1);
     setenv("LD_LIBRARY_PATH", ld, 1);
+    setenv("_JAVA_LAUNCHER_DEBUG", "1", 1);
 
+    fprintf(stderr, "[xeno] pid=%d\n", (int) getpid());
     fprintf(stderr, "[xeno] JAVA_HOME=%s\n", home);
-    fprintf(stderr, "[xeno] libjvm=%s\n", jvmPath);
-    fprintf(stderr, "[xeno] libjli=%s\n", jliPath);
+    fprintf(stderr, "[xeno] LD_LIBRARY_PATH=%s\n", ld);
 
-    /* Android не учитывает LD_LIBRARY_PATH после старта процесса,
-       поэтому грузим главные библиотеки по полному пути */
     void *jvm = dlopen(jvmPath, RTLD_NOW | RTLD_GLOBAL);
     if (!jvm) {
         fprintf(stderr, "[xeno] ERROR dlopen libjvm: %s\n", dlerror());
@@ -69,6 +83,7 @@ Java_com_xeno_launcher_Native_launch(JNIEnv *env, jclass cls,
         fprintf(stderr, "[xeno] ERROR dlsym JLI_Launch: %s\n", dlerror());
         return -3;
     }
+    fprintf(stderr, "[xeno] libs loaded, calling JLI_Launch\n");
 
     int n = (*env)->GetArrayLength(env, jArgs);
     char **argv = calloc(n + 2, sizeof(char *));
@@ -77,9 +92,6 @@ Java_com_xeno_launcher_Native_launch(JNIEnv *env, jclass cls,
         jstring s = (jstring) (*env)->GetObjectArrayElement(env, jArgs, i);
         argv[i + 1] = dupstr(env, s);
         (*env)->DeleteLocalRef(env, s);
-    }
-    for (int i = 0; i <= n; i++) {
-        fprintf(stderr, "[xeno] arg[%d]=%s\n", i, argv[i]);
     }
 
     int rc = launch(n + 1, argv, 0, NULL, 0, NULL,
