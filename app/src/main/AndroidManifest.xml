@@ -3,6 +3,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <application
         android:allowBackup="true"
+        android:extractNativeLibs="true"
+        android:largeHeap="true"
         android:label="@string/app_name"
         android:theme="@style/Theme.Xeno">
         <activity
@@ -13,5 +15,9 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <service
+            android:name=".JavaService"
+            android:exported="false"
+            android:process=":java" />
     </application>
 </manifest>
