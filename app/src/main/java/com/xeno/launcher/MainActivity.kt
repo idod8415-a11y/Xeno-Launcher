@@ -1,5 +1,6 @@
 package com.xeno.launcher
 
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -12,21 +13,29 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 
-private val XenoColors = darkColorScheme(
-    primary = androidx.compose.ui.graphics.Color(0xFF7CFFB2),
-    background = androidx.compose.ui.graphics.Color(0xFF0E1116),
-    surface = androidx.compose.ui.graphics.Color(0xFF161B22),
-)
-
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { MaterialTheme(colorScheme = XenoColors) { XenoApp() } }
+        val prefs = getSharedPreferences("xeno", Context.MODE_PRIVATE)
+        setContent {
+            var theme by remember {
+                mutableStateOf(
+                    runCatching { XenoTheme.valueOf(prefs.getString("theme", "GREEN") ?: "GREEN") }
+                        .getOrDefault(XenoTheme.GREEN)
+                )
+            }
+            MaterialTheme(colorScheme = schemeFor(theme, this)) {
+                XenoApp(theme) {
+                    theme = it
+                    prefs.edit().putString("theme", it.name).apply()
+                }
+            }
+        }
     }
 }
 
 @Composable
-fun XenoApp() {
+fun XenoApp(theme: XenoTheme, onTheme: (XenoTheme) -> Unit) {
     var tab by remember { mutableIntStateOf(0) }
     var selected by remember { mutableStateOf<McVersion?>(null) }
     var nick by remember { mutableStateOf("Player") }
@@ -49,7 +58,7 @@ fun XenoApp() {
             when (tab) {
                 0 -> PlayScreen(selected) { selected = it }
                 1 -> JavaScreen()
-                else -> SettingsScreen(nick, { nick = it }, ramMb, { ramMb = it })
+                else -> SettingsScreen(nick, { nick = it }, ramMb, { ramMb = it }, theme, onTheme)
             }
         }
     }
