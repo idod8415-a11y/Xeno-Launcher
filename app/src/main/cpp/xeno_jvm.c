@@ -55,8 +55,6 @@ static void collect(const char *dir) {
     closedir(d);
 }
 
-/* Грузим все .so из JRE по полным путям: Android без LD_LIBRARY_PATH
-   иначе не найдёт зависимости одной библиотеки в другой */
 static void preload_all(const char *home) {
     char dir[512];
     snprintf(dir, sizeof dir, "%s/lib", home);
@@ -115,6 +113,15 @@ Java_com_xeno_launcher_Native_launch(JNIEnv *env, jclass cls,
 
     fprintf(stderr, "[xeno] pid=%d\n", (int) getpid());
     fprintf(stderr, "[xeno] JAVA_HOME=%s\n", home);
+
+    const char *cwd = getenv("XENO_CWD");
+    if (cwd != NULL) {
+        if (chdir(cwd) == 0) {
+            fprintf(stderr, "[xeno] cwd=%s\n", cwd);
+        } else {
+            fprintf(stderr, "[xeno] chdir failed: %s\n", cwd);
+        }
+    }
 
     void *jvm = dlopen(jvmPath, RTLD_NOW | RTLD_GLOBAL);
     if (!jvm) {
