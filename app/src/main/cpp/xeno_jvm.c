@@ -40,7 +40,6 @@ Java_com_xeno_launcher_Native_launch(JNIEnv *env, jclass cls,
                                      jstring jJvm, jstring jJli,
                                      jstring jLog, jobjectArray jArgs) {
     char *home = dupstr(env, jHome);
-    char *ld = dupstr(env, jLd);
     char *jvmPath = dupstr(env, jJvm);
     char *jliPath = dupstr(env, jJli);
     char *logPath = dupstr(env, jLog);
@@ -61,12 +60,12 @@ Java_com_xeno_launcher_Native_launch(JNIEnv *env, jclass cls,
     signal(SIGILL, on_signal);
 
     setenv("JAVA_HOME", home, 1);
-    setenv("LD_LIBRARY_PATH", ld, 1);
-    setenv("_JAVA_LAUNCHER_DEBUG", "1", 1);
+    /* Без LD_LIBRARY_PATH лаунчер Java не перезапускает процесс через exec.
+       Библиотеки загружаем ниже по полному пути. */
+    unsetenv("LD_LIBRARY_PATH");
 
     fprintf(stderr, "[xeno] pid=%d\n", (int) getpid());
     fprintf(stderr, "[xeno] JAVA_HOME=%s\n", home);
-    fprintf(stderr, "[xeno] LD_LIBRARY_PATH=%s\n", ld);
 
     void *jvm = dlopen(jvmPath, RTLD_NOW | RTLD_GLOBAL);
     if (!jvm) {
