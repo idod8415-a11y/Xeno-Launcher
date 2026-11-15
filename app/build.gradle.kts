@@ -10,10 +10,18 @@ android {
     defaultConfig {
         applicationId = "com.xeno.launcher"
         minSdk = 26
-        targetSdk = 28
-        versionCode = 1
+        targetSdk = 34
+        versionCode = (project.findProperty("versionCode") as String?)?.toIntOrNull() ?: 1
         versionName = "0.1"
         ndk { abiFilters += "arm64-v8a" }
+    }
+    signingConfigs {
+        create("xeno") {
+            storeFile = file("xeno.keystore")
+            storePassword = "xenolauncher"
+            keyAlias = "xeno"
+            keyPassword = "xenolauncher"
+        }
     }
     externalNativeBuild {
         cmake {
@@ -22,6 +30,7 @@ android {
         }
     }
     buildTypes {
+        debug { signingConfig = signingConfigs.getByName("xeno") }
         release { isMinifyEnabled = false }
     }
     compileOptions {
