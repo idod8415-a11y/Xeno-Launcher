@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.IBinder
 import android.os.Process
 import java.io.File
+import java.util.concurrent.atomic.AtomicBoolean
 
 object Native {
     init { System.loadLibrary("xenojvm") }
@@ -17,9 +18,16 @@ object Native {
 }
 
 class JavaService : Service() {
+    companion object {
+        private val running = AtomicBoolean(false)
+    }
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // JVM создаётся один раз за процесс: повторный запуск подряд игнорируем
+        if (!running.compareAndSet(false, true)) return START_NOT_STICKY
+
         val userArgs = intent?.getStringArrayExtra("args") ?: arrayOf("-version")
         val log = JavaRuntime.logFile(this)
         Thread {
@@ -44,8 +52,7 @@ class JavaService : Service() {
                     log.appendText("[xeno] ERROR: $t\n")
                 }
             }
-            // JVM нельзя запустить дважды в одном процессе, поэтому процесс :java
-            // завершаем, и каждый запуск идёт в свежем процессе
+            // после завершения JVM убиваем процесс :java: следующий запуск будет в свежем
             Process.killProcess(Process.myPid())
         }.start()
         return START_NOT_STICKY
