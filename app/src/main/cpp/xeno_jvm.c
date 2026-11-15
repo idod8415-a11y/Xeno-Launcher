@@ -1,4 +1,5 @@
 #include <jni.h>
+#include <dirent.h>
 #include <dlfcn.h>
 #include <fcntl.h>
 #include <signal.h>
@@ -14,6 +15,10 @@ typedef int (*JLI_Launch_t)(int argc, char **argv,
                             const char *pname, const char *lname,
                             unsigned char javaargs, unsigned char cpwildcard,
                             unsigned char javaw, int ergo);
+
+#define MAXLIBS 256
+static char *libs[MAXLIBS];
+static int nlibs = 0;
 
 static void logmsg(const char *m) { write(2, m, strlen(m)); }
 
@@ -32,6 +37,52 @@ static char *dupstr(JNIEnv *env, jstring s) {
     char *r = strdup(c);
     (*env)->ReleaseStringUTFChars(env, s, c);
     return r;
+}
+
+static void collect(const char *dir) {
+    DIR *d = opendir(dir);
+    if (!d) return;
+    struct dirent *e;
+    while ((e = readdir(d)) != NULL && nlibs < MAXLIBS) {
+        size_t l = strlen(e->d_name);
+        if (l > 3 && strcmp(e->d_name + l - 3, ".so") == 0
+            && strstr(e->d_name, "jsig") == NULL) {
+            char *p = malloc(strlen(dir) + l + 2);
+            sprintf(p, "%s/%s", dir, e->d_name);
+            libs[nlibs++] = p;
+        }
+    }
+    closedir(d);
+}
+
+/* Грузим все .so из JRE по полным путям: Android без LD_LIBRARY_PATH
+   иначе не найдёт зависимости одной библиотеки в другой */
+static void preload_all(const char *home) {
+    char dir[512];
+    snprintf(dir, sizeof dir, "%s/lib", home);
+    collect(dir);
+    snprintf(dir, sizeof dir, "%s/lib/server", home);
+    collect(dir);
+
+    int loaded[MAXLIBS];
+    memset(loaded, 0, sizeof loaded);
+    int total = 0;
+    for (int pass = 0; pass < 6; pass++) {
+        int progress = 0;
+        for (int i = 0; i < nlibs; i++) {
+            if (loaded[i]) continue;
+            if (dlopen(libs[i], RTLD_NOW | RTLD_GLOBAL)) {
+                loaded[i] = 1;
+                progress = 1;
+                total++;
+            }
+        }
+        if (!progress) break;
+    }
+    fprintf(stderr, "[xeno] preloaded %d of %d libs\n", total, nlibs);
+    for (int i = 0; i < nlibs; i++) {
+        if (!loaded[i]) fprintf(stderr, "[xeno] not loaded: %s\n", libs[i]);
+    }
 }
 
 JNIEXPORT jint JNICALL
@@ -60,8 +111,6 @@ Java_com_xeno_launcher_Native_launch(JNIEnv *env, jclass cls,
     signal(SIGILL, on_signal);
 
     setenv("JAVA_HOME", home, 1);
-    /* Без LD_LIBRARY_PATH лаунчер Java не перезапускает процесс через exec.
-       Библиотеки загружаем ниже по полному пути. */
     unsetenv("LD_LIBRARY_PATH");
 
     fprintf(stderr, "[xeno] pid=%d\n", (int) getpid());
@@ -82,6 +131,7 @@ Java_com_xeno_launcher_Native_launch(JNIEnv *env, jclass cls,
         fprintf(stderr, "[xeno] ERROR dlsym JLI_Launch: %s\n", dlerror());
         return -3;
     }
+    preload_all(home);
     fprintf(stderr, "[xeno] libs loaded, calling JLI_Launch\n");
 
     int n = (*env)->GetArrayLength(env, jArgs);
