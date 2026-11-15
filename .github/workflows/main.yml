@@ -14,7 +14,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.9
-      - run: gradle assembleDebug --no-daemon
+      - name: Restore signing key
+        run: base64 -d app/xeno.keystore.b64 > app/xeno.keystore
+      - run: gradle assembleDebug --no-daemon -PversionCode=${{ github.run_number }}
       - uses: actions/upload-artifact@v4
         with:
           name: XenoLauncher-debug
