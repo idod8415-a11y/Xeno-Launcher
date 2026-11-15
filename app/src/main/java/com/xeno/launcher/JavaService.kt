@@ -39,9 +39,9 @@ class JavaService : Service() {
                 val gameDir = Downloader.gameDir(this).apply { mkdirs() }
                 File(gameDir, "logs").mkdirs()
                 try {
-                    Os.chdir(gameDir.path)
+                    Os.setenv("XENO_CWD", gameDir.path, true)
                 } catch (e: Exception) {
-                    log.writeText("[xeno] chdir failed: $e\n")
+                    log.writeText("[xeno] setenv failed: $e\n")
                 }
                 val args = arrayOf(
                     "-Djava.home=${rt.home.path}",
