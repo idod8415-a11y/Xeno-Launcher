@@ -1,6 +1,7 @@
 package com.xeno.launcher
 
 import android.content.Intent
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -11,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
@@ -31,10 +33,7 @@ fun PlayScreen(selected: McVersion?, onSelect: (McVersion) -> Unit) {
     }
     val shown = versions.filter { snapshots || it.type == "release" }
 
-    Column(Modifier.fillMaxSize().padding(16.dp)) {
-        Text("Xeno Launcher", style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.primary)
-        Spacer(Modifier.height(8.dp))
+    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Switch(snapshots, { snapshots = it })
             Spacer(Modifier.width(8.dp))
@@ -47,14 +46,23 @@ fun PlayScreen(selected: McVersion?, onSelect: (McVersion) -> Unit) {
             else -> LazyColumn(Modifier.weight(1f)) {
                 items(shown) { v ->
                     val sel = v.id == selected?.id
-                    ListItem(
-                        headlineContent = { Text(v.id) },
-                        supportingContent = { Text(v.type) },
-                        colors = ListItemDefaults.colors(
-                            containerColor = if (sel) MaterialTheme.colorScheme.surface
-                            else MaterialTheme.colorScheme.background),
-                        modifier = Modifier.clickable { onSelect(v) }
-                    )
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                            .clip(SlantShape(48f))
+                            .background(
+                                if (sel) MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+                                else MaterialTheme.colorScheme.surface
+                            )
+                            .clickable { onSelect(v) }
+                            .padding(horizontal = 32.dp, vertical = 12.dp)
+                    ) {
+                        Column {
+                            Text(v.id, style = MaterialTheme.typography.titleMedium)
+                            Text(v.type, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
                 }
             }
         }
@@ -82,6 +90,7 @@ fun PlayScreen(selected: McVersion?, onSelect: (McVersion) -> Unit) {
                 }
             },
             enabled = selected != null && !busy,
+            shape = SlantShape(40f),
             modifier = Modifier.fillMaxWidth()
         ) {
             Icon(Icons.Filled.PlayArrow, null)
@@ -111,7 +120,9 @@ fun PlayScreen(selected: McVersion?, onSelect: (McVersion) -> Unit) {
                 }
             },
             enabled = selected != null && !busy,
+            shape = SlantShape(40f),
             modifier = Modifier.fillMaxWidth()
         ) { Text("Запустить (тест)") }
+        Spacer(Modifier.height(8.dp))
     }
 }
