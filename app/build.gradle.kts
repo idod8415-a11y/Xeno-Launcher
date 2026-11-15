@@ -10,9 +10,16 @@ android {
     defaultConfig {
         applicationId = "com.xeno.launcher"
         minSdk = 26
-        targetSdk = 34
+        targetSdk = 28
         versionCode = 1
         versionName = "0.1"
+        ndk { abiFilters += "arm64-v8a" }
+    }
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
     }
     buildTypes {
         release { isMinifyEnabled = false }
@@ -35,4 +42,6 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+    implementation("org.apache.commons:commons-compress:1.21")
+    implementation("org.tukaani:xz:1.9")
 }
