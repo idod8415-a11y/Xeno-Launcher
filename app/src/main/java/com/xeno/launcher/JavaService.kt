@@ -4,6 +4,7 @@ import android.app.Service
 import android.content.Intent
 import android.os.IBinder
 import android.os.Process
+import android.system.Os
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -25,7 +26,6 @@ class JavaService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // JVM создаётся один раз за процесс: повторный запуск подряд игнорируем
         if (!running.compareAndSet(false, true)) return START_NOT_STICKY
 
         val userArgs = intent?.getStringArrayExtra("args") ?: arrayOf("-version")
@@ -36,6 +36,13 @@ class JavaService : Service() {
                 log.writeText("[xeno] ERROR: Java не импортирована\n")
             } else {
                 val tmp = File(cacheDir, "jtmp").apply { mkdirs() }
+                val gameDir = Downloader.gameDir(this).apply { mkdirs() }
+                File(gameDir, "logs").mkdirs()
+                try {
+                    Os.chdir(gameDir.path)
+                } catch (e: Exception) {
+                    log.writeText("[xeno] chdir failed: $e\n")
+                }
                 val args = arrayOf(
                     "-Djava.home=${rt.home.path}",
                     "-Djava.io.tmpdir=${tmp.path}",
@@ -52,7 +59,6 @@ class JavaService : Service() {
                     log.appendText("[xeno] ERROR: $t\n")
                 }
             }
-            // после завершения JVM убиваем процесс :java: следующий запуск будет в свежем
             Process.killProcess(Process.myPid())
         }.start()
         return START_NOT_STICKY
