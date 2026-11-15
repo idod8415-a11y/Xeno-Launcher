@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -40,17 +41,21 @@ fun XenoApp(theme: XenoTheme, onTheme: (XenoTheme) -> Unit) {
     var selected by remember { mutableStateOf<McVersion?>(null) }
     var nick by remember { mutableStateOf("Player") }
     var ramMb by remember { mutableFloatStateOf(2048f) }
+    val names = listOf("Играть", "Java", "Настройки")
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
-        bottomBar = {
-            NavigationBar {
-                NavigationBarItem(tab == 0, { tab = 0 },
-                    { Icon(Icons.Filled.Home, null) }, label = { Text("Играть") })
-                NavigationBarItem(tab == 1, { tab = 1 },
-                    { Icon(Icons.Filled.Build, null) }, label = { Text("Java") })
-                NavigationBarItem(tab == 2, { tab = 2 },
-                    { Icon(Icons.Filled.Settings, null) }, label = { Text("Настройки") })
+        topBar = {
+            Column {
+                DiagonalHeader("XENO", names[tab])
+                NavigationBar(windowInsets = WindowInsets(0.dp)) {
+                    NavigationBarItem(tab == 0, { tab = 0 },
+                        { Icon(Icons.Filled.Home, null) }, label = { Text("Играть") })
+                    NavigationBarItem(tab == 1, { tab = 1 },
+                        { Icon(Icons.Filled.Build, null) }, label = { Text("Java") })
+                    NavigationBarItem(tab == 2, { tab = 2 },
+                        { Icon(Icons.Filled.Settings, null) }, label = { Text("Настройки") })
+                }
             }
         }
     ) { pad ->
