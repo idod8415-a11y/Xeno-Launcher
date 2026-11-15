@@ -49,7 +49,7 @@ object GameLauncher {
             "user_type" to "mojang",
             "version_type" to json.optString("type", "release")
         )
-        fun sub(s: String) = Regex("\\$\\{(\\w+)}").replace(s) { vars[it.groupValues[1]] ?: "0" }
+                fun sub(s: String) = Regex("\\$\\{(\\w+)\\}").replace(s) { vars[it.groupValues[1]] ?: "0" }
 
         val game = mutableListOf<String>()
         val newArgs = json.optJSONObject("arguments")?.optJSONArray("game")
