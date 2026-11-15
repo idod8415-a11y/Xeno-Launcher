@@ -1,5 +1,6 @@
 package com.xeno.launcher
 
+import android.content.Intent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -93,5 +94,24 @@ fun PlayScreen(selected: McVersion?, onSelect: (McVersion) -> Unit) {
                 }
             )
         }
+        Spacer(Modifier.height(8.dp))
+        OutlinedButton(
+            onClick = {
+                val v = selected
+                if (v != null) {
+                    try {
+                        val a = GameLauncher.buildArgs(ctx, v.id, "Player", 2048)
+                        ctx.startService(
+                            Intent(ctx, JavaService::class.java).putExtra("args", a)
+                        )
+                        status = "Запущено, лог на вкладке Java"
+                    } catch (e: Exception) {
+                        status = "Ошибка: ${e.message}"
+                    }
+                }
+            },
+            enabled = selected != null && !busy,
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("Запустить (тест)") }
     }
 }
