@@ -1,0 +1,31 @@
+name: Build GLFW stub
+on:
+  workflow_dispatch:
+jobs:
+  stub:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Clone Amethyst
+        run: git clone --depth 1 --recursive --shallow-submodules https://github.com/AngelAuraMC/Amethyst-Android.git amethyst
+      - name: Prepare
+        working-directory: amethyst
+        run: bash scripts/languagelist_updater.sh || true
+      - name: Build GLFW stub
+        working-directory: amethyst
+        run: |
+          chmod +x gradlew
+          ./gradlew :jre_lwjgl3glfw:build --no-daemon
+      - name: List native methods
+        run: |
+          cd amethyst/jre_lwjgl3glfw
+          find . -name "*.java" | head -40
+          echo ----- NATIVE -----
+          grep -rhn " native " src | head -100
+      - uses: actions/upload-artifact@v4
+        with:
+          name: glfw-stub
+          path: amethyst/jre_lwjgl3glfw/build/libs/*.jar
