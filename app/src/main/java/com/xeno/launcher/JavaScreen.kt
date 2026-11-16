@@ -31,6 +31,7 @@ fun JavaScreen() {
     var log by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var installed by remember { mutableStateOf(JavaRuntime.find(ctx)?.home?.name) }
+    var lwjglInfo by remember { mutableStateOf(LwjglRuntime.summary(ctx)) }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -43,6 +44,24 @@ fun JavaScreen() {
                     status = "Ошибка: ${e.message}"
                 }
                 installed = JavaRuntime.find(ctx)?.home?.name
+                busy = false
+            }
+        }
+    }
+
+    val lwjglPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris ->
+        if (uris.isNotEmpty()) {
+            busy = true
+            status = "Импорт LWJGL…"
+            scope.launch {
+                try {
+                    LwjglRuntime.importZips(ctx, uris) { status = it }
+                } catch (e: Exception) {
+                    status = "Ошибка: ${e.message}"
+                }
+                lwjglInfo = LwjglRuntime.summary(ctx)
                 busy = false
             }
         }
@@ -74,6 +93,12 @@ fun JavaScreen() {
                 enabled = !busy,
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Импорт Java") }
+            Text(lwjglInfo, style = MaterialTheme.typography.bodySmall)
+            Button(
+                onClick = { lwjglPicker.launch(arrayOf("*/*")) },
+                enabled = !busy,
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Импорт LWJGL (2 zip)") }
             if (status.isNotEmpty()) Text(status, style = MaterialTheme.typography.bodySmall)
             Button(
                 onClick = {
