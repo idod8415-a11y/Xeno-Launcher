@@ -24,13 +24,22 @@ object GameLauncher {
         val vDir = File(root, "versions/$id")
         val json = JSONObject(File(vDir, "$id.json").readText())
 
+        val lwjglJars = LwjglRuntime.jars(ctx)
+        val lwjglNatives = LwjglRuntime.nativesDir(ctx)
+
         val cp = mutableListOf<String>()
+        // наш LWJGL первым: его классы перекрывают настольные
+        lwjglJars.forEach { cp += it.path }
+
         val libs = json.getJSONArray("libraries")
         for (i in 0 until libs.length()) {
             val lib = libs.getJSONObject(i)
             if (!allowed(lib)) continue
             val art = lib.optJSONObject("downloads")?.optJSONObject("artifact") ?: continue
-            val f = File(root, "libraries/${art.getString("path")}")
+            val path = art.getString("path")
+            // настольные нативные библиотеки LWJGL нам не нужны
+            if (lwjglNatives != null && path.startsWith("org/lwjgl/") && path.contains("natives-")) continue
+            val f = File(root, "libraries/$path")
             if (f.exists()) cp += f.path
         }
         cp += File(vDir, "$id.jar").path
@@ -49,7 +58,7 @@ object GameLauncher {
             "user_type" to "mojang",
             "version_type" to json.optString("type", "release")
         )
-                fun sub(s: String) = Regex("\\$\\{(\\w+)\\}").replace(s) { vars[it.groupValues[1]] ?: "0" }
+        fun sub(s: String) = Regex("\\$\\{(\\w+)\\}").replace(s) { vars[it.groupValues[1]] ?: "0" }
 
         val game = mutableListOf<String>()
         val newArgs = json.optJSONObject("arguments")?.optJSONArray("game")
@@ -63,11 +72,15 @@ object GameLauncher {
                 .filter { it.isNotEmpty() }.forEach { game += sub(it) }
         }
 
-        return arrayOf(
+        val jvm = mutableListOf(
             "-Xmx${ramMb}m",
-            "-Djava.library.path=${natives.path}",
-            "-cp", cp.joinToString(":"),
-            json.getString("mainClass")
-        ) + game
+            "-Djava.library.path=${lwjglNatives?.path ?: natives.path}",
+            "-Dorg.lwjgl.util.Debug=true",
+            "-Dorg.lwjgl.util.DebugLoader=true"
+        )
+        if (lwjglNatives != null) jvm += "-Dorg.lwjgl.librarypath=${lwjglNatives.path}"
+
+        return (jvm + listOf("-cp", cp.joinToString(":"), json.getString("mainClass")) + game)
+            .toTypedArray()
     }
 }
