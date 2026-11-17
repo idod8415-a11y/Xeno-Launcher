@@ -21,10 +21,14 @@ jobs:
           ./gradlew :jre_lwjgl3glfw:build --no-daemon
       - name: List native methods
         run: |
-          cd amethyst/jre_lwjgl3glfw
-          find . -name "*.java" | head -40
+          ls -l amethyst/jre_lwjgl3glfw/build/libs
+          cd amethyst/jre_lwjgl3glfw/lwjgl-3.3.3/src/main/java
           echo ----- NATIVE -----
-          grep -rhn " native " src | head -100
+          grep -rn "native " org
+          echo ----- PROPERTIES -----
+          grep -rn "getProperty\|getenv\|loadLibrary" org
+          echo ----- SIZES -----
+          wc -l org/lwjgl/glfw/*.java org/lwjgl/opengl/*.java
       - uses: actions/upload-artifact@v4
         with:
           name: glfw-stub
